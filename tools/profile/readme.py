@@ -5,7 +5,7 @@
 - the alt text of the stats, builds, and contribution-city images
 - the project-card block between <!-- projects:start --> and <!-- projects:end -->
 - the stack block between <!-- stack:start --> and <!-- stack:end -->
-  (per-icon images with title/alt hover names, official-color tiles)
+  (one skills.svg image; GitHub's table sanitizer breaks a tiled frame)
 
 Everything else in the README is left exactly as it is. There is no
 writing or links section.
@@ -27,7 +27,16 @@ PROJECTS_FILE = HERE / "projects.json"
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 from render import series_metrics  # noqa: E402
-from stack import stack_block  # noqa: E402
+
+STACK_IMG = (
+    '<img src="./assets/skills.svg" width="100%" align="top" '
+    'alt="Tools and stack: languages, infrastructure, AI tools, and design apps.">'
+)
+
+
+def stack_block() -> str:
+    """Single framed skills image. A HTML table is restyled by GitHub."""
+    return "<!-- stack:start -->\n" + STACK_IMG + "\n<!-- stack:end -->"
 
 
 def days(n):
