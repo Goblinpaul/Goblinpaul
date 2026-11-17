@@ -8,6 +8,10 @@
 The approved Matrix-rain header (assets/header.svg) is never overwritten.
 Run fetch.py first to refresh data/*.json; this script only reads those
 files (and tools/profile/projects.json) and draws the other sections.
+If data/snapshot.json is present, its frozen per-day counts are
+merged into the contribution city and into assets/builds.svg at render time
+(same day-by-day series for both). That file is a static snapshot; this
+script never fetches or overwrites it.
 """
 from __future__ import annotations
 
@@ -149,11 +153,6 @@ def _days(n) -> str:
     return "1 day" if n == 1 else f"{n} days"
 
 
-def _followers(n) -> str:
-    n = int(n or 0)
-    return "1 follower" if n == 1 else f"{n} followers"
-
-
 def corners(x, y, w, h, arm=9, color=None, sw=1.25, fill=True) -> str:
     """Four L-shaped corner brackets over a faint card body."""
     color = color or GREEN
@@ -204,13 +203,127 @@ def dotted_kv(x, y, key, value, width_chars=18) -> str:
     )
 
 
-def build_stats(d: dict) -> str:
+# Same rule as fetch.py. Applied here only when languages are raw byte totals
+# (local stats.json has no per-repo breakdown). After Actions, values are
+# already equal-repo shares and are used as-is.
+MARKUP_LANGS = frozenset({"HTML", "CSS", "SCSS", "Sass", "Less"})
+MARKUP_WEIGHT = 0.2
+LANG_COLORS = ["#39ff14", "#00e8ff", "#ffe500", "#ff4dff", "#ff9a1a", "#5cadff"]
+OTHER_COLOR = "#8e8e8e"
+
+
+def language_weights(langs: dict) -> dict[str, float]:
+    """Relative language mix for the bar.
+
+    If values already look like shares (max <= 1, sum <= 1.5), they came from
+    fetch.py's per-repo average and are left alone. Otherwise they are
+    aggregate bytes: apply the same markup down-weight and renormalize.
+    """
+    cleaned = {}
+    for name, size in (langs or {}).items():
+        try:
+            n = float(size or 0)
+        except (TypeError, ValueError):
+            continue
+        if n > 0 and name:
+            cleaned[name] = n
+    if not cleaned:
+        return {}
+    total = sum(cleaned.values())
+    mx = max(cleaned.values())
+    if mx <= 1.0 and total <= 1.5:
+        return cleaned
+    weighted = {
+        name: size * (MARKUP_WEIGHT if name in MARKUP_LANGS else 1.0)
+        for name, size in cleaned.items()
+    }
+    t = sum(weighted.values())
+    if t <= 0:
+        return {}
+    return {name: size / t for name, size in weighted.items()}
+
+
+def _positive(d: dict, key: str):
+
+    """Return a value only when it is present and greater than zero."""
+    if key not in d or d.get(key) is None:
+        return None
+    try:
+        n = int(d[key])
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+def _card_slots(n: int, y: float, h: float):
+    inner = WIDTH - 2 * PAD_X
+    gap = 22
+    tw = (inner - gap * (n - 1)) / n if n else inner
+    return [(PAD_X + i * (tw + gap), y, tw, h) for i in range(n)]
+
+
+def current_streak(days: dict, today: datetime.date) -> int:
+    """Current streak may end yesterday if today is still empty."""
+    d = today
+    if days.get(d, 0) == 0:
+        d -= datetime.timedelta(days=1)
+    current = 0
+    while days.get(d, 0) > 0:
+        current += 1
+        d -= datetime.timedelta(days=1)
+    return current
+
+
+def series_metrics(calendar) -> dict:
+    """Totals, averages, and streak from a [[date, count], ...] series."""
+    parsed = []
+    for item in calendar or []:
+        if not isinstance(item, (list, tuple)) or len(item) < 2:
+            continue
+        try:
+            day = datetime.date.fromisoformat(str(item[0]))
+            n = int(item[1] or 0)
+        except (TypeError, ValueError):
+            continue
+        parsed.append((day, n))
+    if not parsed:
+        return {
+            "total": 0,
+            "avg": 0.0,
+            "active": 0,
+            "pct": 0,
+            "streak": 0,
+            "peak": 0,
+            "busiest": None,
+            "days": [],
+            "n": 0,
+        }
+    total = sum(n for _, n in parsed)
+    n = len(parsed)
+    active = sum(1 for _, c in parsed if c)
+    peak_day, peak = max(parsed, key=lambda t: t[1])
+    by = {d: c for d, c in parsed}
+    return {
+        "total": total,
+        "avg": total / n,
+        "active": active,
+        "pct": int(round(100.0 * active / n)),
+        "streak": current_streak(by, max(by)),
+        "peak": peak,
+        "busiest": (peak_day, peak) if peak else None,
+        "days": parsed,
+        "n": n,
+    }
+
+
+def build_stats(d: dict, calendar=None) -> str:
     updated = datetime.date.fromisoformat(d["updated"])
     since = datetime.date.fromisoformat(d["created_at"][:10])
     year = d.get("year", updated.year)
     cy = d.get("contributions_year", d.get("commits_year", 0))
     ca = d.get("contributions_all", d.get("commits_all", 0))
     n_accounts = int(d.get("accounts") or 0)
+    metrics = series_metrics(calendar)
 
     parts: list[str] = []
     head_y = TITLE_H + 20
@@ -224,28 +337,69 @@ def build_stats(d: dict) -> str:
     )
 
     prompt_y = TITLE_H + 44
-    parts.append(prompt_row(prompt_y, "gh stats --user goblinpaul"))
+    parts.append(prompt_row(prompt_y, "gh stats --all-accounts"))
 
-    tw, gap, ty, th = 176, 22, TITLE_H + 62, 100
-    cards = [
-        ("TOTAL STARS", fmt(d.get("stars", 0)), ""),
-        (f"CONTRIBUTIONS {year}", fmt(cy), f"{fmt(ca)} all time"),
-        ("PULL REQUESTS", fmt(d.get("prs", 0)), f"{fmt(d.get('prs_merged', 0))} merged"),
-        ("CURRENT STREAK", f"{d.get('streak_current', 0)}d", f"longest: {_days(d.get('streak_longest', 0))}"),
-    ]
-    for i, (lab, val, sub) in enumerate(cards):
-        parts.append(corner_card(PAD_X + i * (tw + gap), ty, tw, th, lab, val, sub, 0.12 + i * 0.06))
+    ty, th = TITLE_H + 62, 100
+    cards = []
+    commits_year = _positive(d, "commits_year")
+    if commits_year is not None:
+        commits_all = d.get("commits_all")
+        sub = (
+            f"{fmt(commits_all)} all time"
+            if commits_all and int(commits_all) != commits_year
+            else ""
+        )
+        cards.append((f"COMMITS {year}", fmt(commits_year), sub))
+    if cy:
+        cards.append((f"CONTRIBUTIONS {year}", fmt(cy), f"{fmt(ca)} all time" if ca else ""))
+    if _positive(d, "prs") is not None:
+        merged = d.get("prs_merged")
+        sub = f"{fmt(merged)} merged" if merged else ""
+        cards.append(("PULL REQUESTS", fmt(d.get("prs")), sub))
+    if d.get("streak_current") or d.get("streak_longest"):
+        cards.append(
+            (
+                "CURRENT STREAK",
+                f"{d.get('streak_current', 0)}d",
+                f"longest: {_days(d.get('streak_longest', 0))}",
+            )
+        )
+    if not cards:
+        raise SystemExit("stats.json has no values to show")
+    for i, ((lab, val, sub), (x, y, w, h)) in enumerate(zip(cards, _card_slots(len(cards), ty, th))):
+        parts.append(corner_card(x, y, w, h, lab, val, sub, 0.12 + i * 0.06))
 
-    ry, rh = ty + th + 16, 148
+    kv_rows = []
+    owned = _positive(d, "repos_owned")
+    if owned is not None:
+        kv_rows.append(("repos owned", fmt(owned)))
+    contrib = _positive(d, "repos_contributed")
+    if contrib is not None:
+        kv_rows.append(("repos contributed", fmt(contrib)))
+    prs_merged = _positive(d, "prs_merged")
+    if prs_merged is not None:
+        kv_rows.append(("PRs merged", fmt(prs_merged)))
+    if metrics["active"]:
+        kv_rows.append(("active days", fmt(metrics["active"])))
+    if metrics["busiest"]:
+        bd, bn = metrics["busiest"]
+        kv_rows.append(("busiest day", f"{bd:%b} {bd.day} · {bn:,}"))
+    if n_accounts:
+        kv_rows.append(("accounts", fmt(n_accounts)))
+    kv_rows.append(("member since", f"{since:%b %Y}"))
+
+    row_h = 26
+    pad_top, pad_bot = 28, 20
+    rh = pad_top + max(0, len(kv_rows) - 1) * row_h + pad_bot
+    # keep the languages card at least as tall as the original layout
+    rh = max(rh, 148)
+    ry = ty + th + 16
     lw, gap2 = 268, 22
-    kv_x, kv_y0 = PAD_X + 16, ry + 28
-    kv_rows = [
-        ("followers", fmt(d.get("followers", 0))),
-        ("forks", fmt(d.get("forks", 0))),
-        ("member since", f"{since:%b %Y}"),
-        ("accounts", fmt(n_accounts) if n_accounts else "—"),
-    ]
-    kv = "\n  ".join(dotted_kv(kv_x, kv_y0 + i * 28, k, v) for i, (k, v) in enumerate(kv_rows))
+    kv_x, kv_y0 = PAD_X + 16, ry + pad_top
+    kv = "\n  ".join(
+        dotted_kv(kv_x, kv_y0 + i * row_h, k, v, width_chars=20)
+        for i, (k, v) in enumerate(kv_rows)
+    )
     parts.append(
         f'<g class="ln" style="animation-delay:.4s">\n'
         f'  {corners(PAD_X, ry, lw, rh)}\n'
@@ -255,18 +409,19 @@ def build_stats(d: dict) -> str:
 
     lx = PAD_X + lw + gap2
     lwid = WIDTH - PAD_X - lx
-    langs = sorted((d.get("languages") or {}).items(), key=lambda item: -item[1])
-    total = sum(v for _, v in langs)
-    palette = [GREEN, "#1ec81e", "#14b814", "#0e8a0e", "#2a8a2a", "#3a6a3a"]
-    if total:
+    weights = language_weights(d.get("languages") or {})
+    langs = sorted(weights.items(), key=lambda item: -item[1])
+    total_lang = sum(v for _, v in langs)
+    if total_lang:
         top = langs[:6]
-        other = total - sum(v for _, v in top)
+        other = total_lang - sum(v for _, v in top)
         if other > 0 and len(top) == 6:
-            items = [(k, v / total) for k, v in top[:5]] + [("Other", (top[5][1] + other) / total)]
+            items = [(k, v / total_lang) for k, v in top[:5]] + [("Other", (top[5][1] + other) / total_lang)]
         elif other > 0:
-            items = [(k, v / total) for k, v in top] + [("Other", other / total)]
+            items = [(k, v / total_lang) for k, v in top] + [("Other", other / total_lang)]
         else:
-            items = [(k, v / total) for k, v in top]
+            items = [(k, v / total_lang) for k, v in top]
+        palette = [OTHER_COLOR if k == "Other" else LANG_COLORS[i] for i, (k, _) in enumerate(items)]
         bx, by, bw = lx + 16, ry + 40, lwid - 32
         segs, cx = [], bx
         for (k, pct), c in zip(items, palette):
@@ -309,13 +464,37 @@ def build_stats(d: dict) -> str:
         f'// last sync {e(d["updated"])}</text>'
     )
     height = fy + PAD_BOT
-    desc = (
-        f"GitHub stats: {d.get('stars', 0)} total stars; "
-        f"{cy} contributions in {year}, {ca} all time; "
-        f"{d.get('prs', 0)} pull requests ({d.get('prs_merged', 0)} merged); "
-        f"current streak {_days(d.get('streak_current', 0))}, longest {_days(d.get('streak_longest', 0))}; "
-        f"{_followers(d.get('followers', 0))}; member since {since:%B %Y}."
-    )
+    desc_bits = []
+    if commits_year is not None:
+        bit = f"{commits_year:,} commits in {year}"
+        if d.get("commits_all") and int(d["commits_all"]) != commits_year:
+            bit += f", {int(d['commits_all']):,} all time"
+        desc_bits.append(bit)
+    if cy:
+        bit = f"{cy:,} contributions in {year}"
+        if ca:
+            bit += f", {ca:,} all time"
+        desc_bits.append(bit)
+    if d.get("prs"):
+        bit = f"{d.get('prs', 0):,} pull requests"
+        if d.get("prs_merged"):
+            bit += f" ({d['prs_merged']:,} merged)"
+        desc_bits.append(bit)
+    if d.get("streak_current") or d.get("streak_longest"):
+        desc_bits.append(
+            f"current streak {_days(d.get('streak_current', 0))}, longest {_days(d.get('streak_longest', 0))}"
+        )
+    if metrics["active"]:
+        desc_bits.append(f"{metrics['active']} active days")
+    if metrics["busiest"]:
+        bd, bn = metrics["busiest"]
+        desc_bits.append(f"busiest day {bd:%B} {bd.day} with {bn:,}")
+    if owned is not None:
+        desc_bits.append(f"{owned:,} owned repos")
+    if contrib is not None:
+        desc_bits.append(f"{contrib:,} contributed repos")
+    desc_bits.append(f"member since {since:%B %Y}")
+    desc = "GitHub stats: " + "; ".join(desc_bits) + "."
     if n_accounts:
         desc += f" Aggregated across {n_accounts} accounts."
     if langs:
@@ -326,6 +505,47 @@ def build_stats(d: dict) -> str:
         + "\n".join(parts)
         + terminal_close()
     )
+
+
+def load_snapshot_days(data_dir: pathlib.Path) -> dict[str, int]:
+    """Real per-day counts from the frozen snapshot, if present."""
+    path = data_dir / "snapshot.json"
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    days: dict[str, int] = {}
+    for item in raw.get("days") or []:
+        if not isinstance(item, (list, tuple)) or len(item) < 2:
+            continue
+        try:
+            key = str(item[0])
+            datetime.date.fromisoformat(key)
+            n = int(item[1] or 0)
+        except (TypeError, ValueError):
+            continue
+        if n > 0:
+            days[key] = n
+    return days
+
+
+def merge_snapshot_calendar(calendar, data_dir: pathlib.Path):
+    """Add frozen snapshot counts onto overlapping calendar days only.
+
+    Days outside the calendar window are ignored; nothing is fabricated.
+    Returns (merged_calendar, snapshot_added).
+    """
+    extra = load_snapshot_days(data_dir)
+    if not extra:
+        return calendar, 0
+    merged = []
+    added = 0
+    for item in calendar:
+        day, n = item[0], int(item[1] or 0)
+        add = extra.get(day, 0)
+        merged.append([day, n + add])
+        added += add
+    return merged, added
 
 
 # ─────────────────────────── contribution city ────────────────────────
@@ -568,6 +788,163 @@ def build_card(p: dict) -> str:
 '''
 
 
+
+# ────────────────────────────── builds ─────────────────────────────────
+HEAT_CELL, HEAT_GAP = 11, 3
+HEAT_COLS, HEAT_ROWS = 53, 7
+HEAT_LEVELS = ["#0a140a", "#0a3a0a", "#127a12", "#1ec81e", "#39ff14"]
+
+
+def _heat_color(count: int, thresholds) -> str:
+    """GitHub-style quartile levels over non-zero days (not vs the peak)."""
+    if count <= 0:
+        return HEAT_LEVELS[0]
+    level = sum(count > t for t in thresholds)  # 0..3
+    return HEAT_LEVELS[1 + level]
+
+
+def _heat_weeks(days: list) -> list[list[tuple[datetime.date, int]]]:
+    """Pack the 371-day series into 53 columns of 7, ending on the last day at bottom-right.
+
+    Column i, row c is end minus (53-i-1)*7 + (7-c-1) days.
+    """
+    by_date = {}
+    for item in days or []:
+        if not isinstance(item, (list, tuple)) or len(item) < 2:
+            continue
+        try:
+            by_date[datetime.date.fromisoformat(str(item[0]))] = int(item[1] or 0)
+        except (TypeError, ValueError):
+            continue
+    if not by_date:
+        return []
+    end = max(by_date)
+    weeks = []
+    for i in range(HEAT_COLS):
+        col = []
+        for c in range(HEAT_ROWS):
+            offset = (HEAT_COLS - i - 1) * HEAT_ROWS + (HEAT_ROWS - c - 1)
+            d = end - datetime.timedelta(days=offset)
+            col.append((d, by_date.get(d, 0)))
+        weeks.append(col)
+    return weeks
+
+
+def build_builds(calendar, updated: str = "") -> str:
+    """Heatmap + summary cards from the same merged series as the city."""
+    m = series_metrics(calendar)
+    total, avg, active, pct, streak = (
+        m["total"], m["avg"], m["active"], m["pct"], m["streak"]
+    )
+    weeks = _heat_weeks(calendar)
+    lv = _levels([n for _, n in m["days"]] or [n for col in weeks for _, n in col])
+
+    parts: list[str] = []
+    head_y = TITLE_H + 20
+    parts.append(
+        f'<text class="fg" x="{PAD_X + 8}" y="{head_y}" text-anchor="start" '
+        f'dominant-baseline="middle">~/builds</text>'
+    )
+    parts.append(
+        f'<text class="muted" x="{WIDTH - PAD_X}" y="{head_y}" text-anchor="end" '
+        f'dominant-baseline="middle">// builds</text>'
+    )
+    prompt_y = TITLE_H + 44
+    parts.append(prompt_row(prompt_y, "ai stats --builds"))
+
+    grid_w = HEAT_COLS * HEAT_CELL + (HEAT_COLS - 1) * HEAT_GAP
+    grid_h = HEAT_ROWS * HEAT_CELL + (HEAT_ROWS - 1) * HEAT_GAP
+    hx = (WIDTH - grid_w) / 2
+    label_y = prompt_y + 24
+    cells_y = label_y + 14
+
+    # Month labels on columns that contain the 1st, skipping tight overlaps.
+    labels = []
+    last_lab_i = -99
+    for i, col in enumerate(weeks):
+        first = next((d for d, _n in col if d.day == 1), None)
+        if first is None or i - last_lab_i < 3:
+            continue
+        last_lab_i = i
+        x = hx + i * (HEAT_CELL + HEAT_GAP)
+        labels.append(
+            f'<text class="muted" x="{x:.1f}" y="{label_y}" text-anchor="start" '
+            f'dominant-baseline="middle" style="font-size:10px">{e(first.strftime("%b"))}</text>'
+        )
+
+    cells = []
+    for i, col in enumerate(weeks):
+        for r, (day, n) in enumerate(col):
+            x = hx + i * (HEAT_CELL + HEAT_GAP)
+            y = cells_y + r * (HEAT_CELL + HEAT_GAP)
+            color = _heat_color(n, lv)
+            title = f"{day.isoformat()}: {n} contribution{'s' if n != 1 else ''}"
+            cells.append(
+                f'<rect x="{x:.1f}" y="{y:.1f}" width="{HEAT_CELL}" height="{HEAT_CELL}" '
+                f'rx="1.5" fill="{color}"><title>{e(title)}</title></rect>'
+            )
+
+    legend_y = cells_y + grid_h + 14
+    # "less" + 5 swatches + "more", right-aligned under the grid
+    sw, sg = 9, 3
+    legend_w = 28 + 5 * (sw + sg) + 28
+    lx = hx + grid_w - legend_w
+    legend = [
+        f'<text class="muted" x="{lx:.1f}" y="{legend_y}" text-anchor="start" '
+        f'dominant-baseline="middle" style="font-size:10px">less</text>'
+    ]
+    sx = lx + 28
+    for color in HEAT_LEVELS:
+        legend.append(
+            f'<rect x="{sx:.1f}" y="{legend_y - sw/2:.1f}" width="{sw}" height="{sw}" '
+            f'rx="1.25" fill="{color}"/>'
+        )
+        sx += sw + sg
+    legend.append(
+        f'<text class="muted" x="{sx + 2:.1f}" y="{legend_y}" text-anchor="start" '
+        f'dominant-baseline="middle" style="font-size:10px">more</text>'
+    )
+
+    parts.append(
+        '<g class="ln" style="animation-delay:.12s">\n  '
+        + "\n  ".join(labels + cells + legend)
+        + "\n</g>"
+    )
+
+    tw, gap, th = 176, 22, 100
+    ty = legend_y + 20
+    cards = [
+        ("TOTAL CONTRIBUTIONS", fmt(total), "last 365 days"),
+        ("DAILY AVERAGE", f"{avg:.1f}", "contributions/day"),
+        ("ACTIVE DAYS", fmt(active), f"{pct}% of the year"),
+        ("CURRENT STREAK", f"{streak}d", _days(streak)),
+    ]
+    for i, (lab, val, sub) in enumerate(cards):
+        parts.append(corner_card(PAD_X + i * (tw + gap), ty, tw, th, lab, val, sub, 0.2 + i * 0.06))
+
+    fy = ty + th + 20
+    if updated:
+        parts.append(
+            f'<text x="{WIDTH - PAD_X}" y="{fy}" text-anchor="end" class="muted" style="font-size:11px">'
+            f'// last sync {e(str(updated))}</text>'
+        )
+        height = fy + PAD_BOT
+    else:
+        height = fy + PAD_BOT - 8
+
+    desc = (
+        f"Build stats: {total:,} contributions in the last year; "
+        f"daily average {avg:.1f}; {active} active days ({pct}% of the year); "
+        f"current streak {_days(streak)}."
+    )
+    extra = "    .ln { opacity: 1; }\n"
+    return (
+        terminal_open(int(math.ceil(height)), "builds", "Build stats", desc, extra_css=extra)
+        + "\n".join(parts)
+        + terminal_close()
+    )
+
+
 # ─────────────────────────────── footer ────────────────────────────────
 def build_footer() -> str:
     height = TITLE_H + 22 + 48 + PAD_BOT
@@ -623,10 +1000,26 @@ def main() -> None:
     projects = load_projects()
 
     # Never touch assets/header.svg — that is the approved v13 header.
-    write("stats.svg", build_stats(stats))
     cal_file = args.data / "calendar.json"
-    if cal_file.exists():
-        write("contribution-city.svg", build_city(json.loads(cal_file.read_text()), stats["updated"]))
+    calendar = json.loads(cal_file.read_text(encoding="utf-8")) if cal_file.exists() else []
+    if calendar:
+        merged, _added = merge_snapshot_calendar(calendar, args.data)
+    else:
+        snap = args.data / "snapshot.json"
+        merged = []
+        if snap.exists():
+            raw = json.loads(snap.read_text(encoding="utf-8"))
+            for item in raw.get("days") or []:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    merged.append([str(item[0]), int(item[1] or 0)])
+
+    write("stats.svg", build_stats(stats, calendar=merged))
+    if merged:
+        write("builds.svg", build_builds(merged, updated=stats.get("updated", "")))
+        write(
+            "contribution-city.svg",
+            build_city(merged, stats["updated"]),
+        )
     write("skills.svg", build_skills())
     write("projects.svg", build_projects_head(len(projects)))
     # Remove stale cards, then write only current ones.

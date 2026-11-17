@@ -5,13 +5,13 @@ aggregated numbers to data/stats.json and data/calendar.json.
 
 Committed data files, the rendered SVGs, README alt text, the workflow,
 and log output must never contain repo names, org names, client names,
-or any account username other than the public profile (Goblinpaul).
+or any account username.
 tools/profile/accounts.json is a generic schema/example only and is
 never read at runtime.
 
 Accounts are loaded, in order, from:
   1. PROFILE_ACCOUNTS — comma-separated username=ENVVAR pairs, e.g.
-     "u1=PROFILE_TOKEN_A,u2=PROFILE_TOKEN_B". This is the GitHub
+     "u1=TOKEN_1,u2=TOKEN_2". This is the GitHub
      Actions secret.
   2. tools/profile/accounts.local.json — gitignored local fallback
      with the same {username, token_env} shape as the example file.
@@ -20,18 +20,23 @@ Empty usernames are skipped.
 Each ENVVAR, if set, should be a classic PAT (repo + read:user) for
 that account. That enables GraphQL contributionsCollection with
 restricted/private contributions, plus private owned and contributed-to
-repos (stars, PRs, languages). PROFILE_TOKEN is an optional alias for
-the Goblinpaul account token. GITHUB_TOKEN is the Actions token used
+repos (stars, PRs, languages). GITHUB_TOKEN is the Actions token used
 as a public GraphQL fallback when an account has no PAT.
 
 With no token at all, public REST plus the public contributions HTML
 calendar are used. Each account is fetched independently; a failure on
 one keeps the others. Totals are summed; repos are deduped by id;
 streaks are computed on the merged daily calendar; member since is the
-earliest created_at.
+earliest created_at. Language shares are an equal-repo average of each
+repo's own language mix (not raw bytes), with HTML/CSS and similar
+markup down-weighted, so generated pages do not dominate the bar.
 
-In Actions, every non-public username is registered with ::add-mask::
+In Actions, every username is registered with ::add-mask::
 and stripped from printed messages.
+
+data/snapshot.json is a frozen, one-time daily-count snapshot.
+This script must never fetch or overwrite that file. render.py merges
+those per-day values into the contribution city at render time.
 """
 from __future__ import annotations
 
@@ -49,7 +54,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 DATA = HERE / "data"
 ACCOUNTS_EXAMPLE = HERE / "accounts.json"  # schema only, not read
 ACCOUNTS_LOCAL = HERE / "accounts.local.json"  # gitignored
-UA = "Goblinpaul-profile-updater"
+UA = "profile-stats-updater"
 
 try:
     from zoneinfo import ZoneInfo
@@ -73,6 +78,8 @@ STATS_KEYS = (
     "streak_current",
     "streak_longest",
     "accounts",
+    "repos_owned",
+    "repos_contributed",
     "updated",
 )
 
@@ -135,30 +142,34 @@ def save(name, obj):
 _MASKED: list[str] = []  # usernames that must never appear in logs
 
 
-def register_masks(accounts: list[dict]) -> None:
-    """Register non-public usernames with Actions log masking."""
-    in_actions = bool(os.environ.get("GITHUB_ACTIONS"))
-    seen: set[str] = set()
-    for row in accounts:
-        login = (row.get("username") or "").strip()
-        if not login or login.lower() == "goblinpaul":
-            continue
-        if login in seen:
-            continue
-        seen.add(login)
-        _MASKED.append(login)
-        quoted = urllib.parse.quote(login)
+def mask_login(login: str) -> None:
+    """Register a username so it never appears in logs."""
+    login = (login or "").strip().lstrip("@")
+    if not login:
+        return
+    key = login.lower()
+    existing = {m.lower() for m in _MASKED}
+    if key in existing:
+        return
+    _MASKED.append(login)
+    quoted = urllib.parse.quote(login)
+    if quoted != login and quoted.lower() not in existing:
+        _MASKED.append(quoted)
+    if os.environ.get("GITHUB_ACTIONS"):
+        print(f"::add-mask::{login}")
         if quoted != login:
-            _MASKED.append(quoted)
-        if in_actions:
-            print(f"::add-mask::{login}")
-            if quoted != login:
-                print(f"::add-mask::{quoted}")
+            print(f"::add-mask::{quoted}")
+
+
+def register_masks(accounts: list[dict]) -> None:
+    """Register every account username with log masking."""
+    for row in accounts:
+        mask_login(row.get("username") or "")
 
 
 def redact(msg) -> str:
     s = str(msg)
-    for login in _MASKED:
+    for login in sorted(_MASKED, key=len, reverse=True):
         s = re.sub(re.escape(login), "***", s, flags=re.I)
     return s
 
@@ -231,11 +242,6 @@ def load_accounts() -> list[dict]:
 def token_for(row: dict) -> str | None:
     env = row.get("token_env") or ""
     tok = os.environ.get(env) if env else None
-    login = (row.get("username") or "")
-    if not tok and (
-        env == "PROFILE_TOKEN_GOBLINPAUL" or login.lower() == "goblinpaul"
-    ):
-        tok = os.environ.get("PROFILE_TOKEN")
     return tok or None
 
 
@@ -324,6 +330,12 @@ def years_query(years):
     return "query($login: String!) {\n  user(login: $login) {" + "".join(parts) + "\n  }\n}"
 
 
+# Markup is counted by file bytes and is often generated by frameworks.
+# It still gets a vote so real frontend work is visible, but at 1/5 weight.
+MARKUP_LANGS = frozenset({"HTML", "CSS", "SCSS", "Sass", "Less"})
+MARKUP_WEIGHT = 0.2
+
+
 def _lang_map(node) -> dict[str, int]:
     out = {}
     for edge in (node or {}).get("languages", {}).get("edges") or []:
@@ -332,6 +344,41 @@ def _lang_map(node) -> dict[str, int]:
         if name and size:
             out[name] = out.get(name, 0) + int(size)
     return out
+
+
+def repo_language_share(langs: dict) -> dict[str, float]:
+    """Per-repo mix: markup bytes down-weighted, then normalized to 1."""
+    weighted: dict[str, float] = {}
+    for name, size in (langs or {}).items():
+        try:
+            n = float(size or 0)
+        except (TypeError, ValueError):
+            continue
+        if n <= 0 or not name:
+            continue
+        w = MARKUP_WEIGHT if name in MARKUP_LANGS else 1.0
+        weighted[name] = weighted.get(name, 0.0) + n * w
+    total = sum(weighted.values())
+    if total <= 0:
+        return {}
+    return {name: size / total for name, size in weighted.items()}
+
+
+def average_language_shares(repo_langs) -> dict[str, float]:
+    """Equal vote per repo that has a language breakdown. No repo names."""
+    sums: dict[str, float] = {}
+    n = 0
+    for langs in repo_langs:
+        share = repo_language_share(langs)
+        if not share:
+            continue
+        n += 1
+        for name, part in share.items():
+            sums[name] = sums.get(name, 0.0) + part
+    if not n:
+        return {}
+    averaged = {name: round(part / n, 6) for name, part in sums.items()}
+    return dict(sorted(averaged.items(), key=lambda kv: -kv[1]))
 
 
 def fetch_repos_graphql(token, login):
@@ -582,13 +629,10 @@ def aggregate(parts: list[dict], today: datetime.date, n_accounts: int) -> tuple
                 continue
             lang_repos[rid] = dict(rec.get("langs") or {})
 
-    langs: dict[str, int] = {}
-    for rec in owned.values():
-        for k, v in (rec.get("langs") or {}).items():
-            langs[k] = langs.get(k, 0) + v
-    for rec_langs in lang_repos.values():
-        for k, v in rec_langs.items():
-            langs[k] = langs.get(k, 0) + v
+    langs = average_language_shares(
+        [rec.get("langs") or {} for rec in owned.values()]
+        + list(lang_repos.values())
+    )
 
     current, longest = streaks(days, today)
     stats = {
@@ -607,8 +651,11 @@ def aggregate(parts: list[dict], today: datetime.date, n_accounts: int) -> tuple
         "streak_current": current,
         "streak_longest": longest,
         "accounts": n_accounts,
+        "repos_owned": len(owned),
+        "repos_contributed": len(lang_repos),
     }
     return stats, last_53_weeks(days, today)
+
 
 
 def public_stats(stats: dict) -> dict:
@@ -625,7 +672,7 @@ def main():
         try:
             data, kind = fetch_one(row, today, public_token)
             parts.append(data)
-            print(f"account {row['index']}/{len(accounts)}: ok ({kind})")
+            print(redact(f"account {row['index']}/{len(accounts)}: ok ({kind})"))
         except Exception as ex:  # noqa: BLE001
             warn(f"account {row['index']}: fetch failed, skipping ({redact(ex)})")
 
@@ -643,6 +690,7 @@ def main():
         f"{stats.get('contributions_all', 0)} all time, "
         f"{stats.get('stars', 0)} stars, {stats.get('followers', 0)} followers"
     )
+
 
 
 if __name__ == "__main__":

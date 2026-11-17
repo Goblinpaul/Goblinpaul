@@ -2,7 +2,7 @@
 # (https://github.com/georgekobaidze/georgekobaidze). See NOTICE and LICENSE.
 """Updates the dynamic parts of README.md from data/*.json.
 
-- the alt text of the stats and contribution-city images
+- the alt text of the stats, builds, and contribution-city images
 - the project-card block between <!-- projects:start --> and <!-- projects:end -->
 
 Everything else in the README is left exactly as it is. There is no
@@ -22,34 +22,93 @@ README = HERE.parent.parent / "README.md"
 DATA = HERE / "data"
 PROJECTS_FILE = HERE / "projects.json"
 
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+from render import series_metrics  # noqa: E402
+
 
 def days(n):
     return f"{n} day" if n == 1 else f"{n} days"
 
 
-def stats_alt(d):
+def stats_alt(d, calendar=None):
     since = datetime.date.fromisoformat(d["created_at"][:10])
     langs = sorted((d.get("languages") or {}).items(), key=lambda kv: -kv[1])[:5]
-    parts = [
-        f'{d.get("stars", 0)} total stars',
-        f'{d.get("contributions_year", d.get("commits_year", 0))} contributions in {d.get("year")}, '
-        f'{d.get("contributions_all", d.get("commits_all", 0))} all time',
-        f'{d.get("prs", 0)} pull requests ({d.get("prs_merged", 0)} merged)',
-        f'current streak {days(d.get("streak_current", 0))}, longest {days(d.get("streak_longest", 0))}',
-        (
-        f'{d.get("followers", 0)} follower' if d.get("followers") == 1
-        else f'{d.get("followers", 0)} followers'
-    ),
-        f'member since {since:%B %Y}',
-    ]
-    if d.get("forks") is not None:
-        parts.append(f'{d.get("forks", 0)} forks')
+    year = d.get("year")
+    parts = []
+    if d.get("commits_year"):
+        bit = f'{d["commits_year"]:,} commits in {year}'
+        if d.get("commits_all") and d["commits_all"] != d["commits_year"]:
+            bit += f', {d["commits_all"]:,} all time'
+        parts.append(bit)
+    cy = d.get("contributions_year", d.get("commits_year", 0))
+    ca = d.get("contributions_all", d.get("commits_all", 0))
+    if cy:
+        bit = f'{cy:,} contributions in {year}'
+        if ca:
+            bit += f', {ca:,} all time'
+        parts.append(bit)
+    if d.get("prs"):
+        bit = f'{d.get("prs", 0):,} pull requests'
+        if d.get("prs_merged"):
+            bit += f' ({d["prs_merged"]:,} merged)'
+        parts.append(bit)
+    if d.get("streak_current") or d.get("streak_longest"):
+        parts.append(
+            f'current streak {days(d.get("streak_current", 0))}, longest {days(d.get("streak_longest", 0))}'
+        )
+    m = series_metrics(calendar) if calendar else None
+    if m and m["active"]:
+        parts.append(f'{m["active"]} active days')
+    if m and m["busiest"]:
+        bd, bn = m["busiest"]
+        parts.append(f'busiest day {bd:%B} {bd.day} with {bn:,}')
+    if d.get("repos_owned"):
+        parts.append(f'{d["repos_owned"]:,} owned repos')
+    if d.get("repos_contributed"):
+        parts.append(f'{d["repos_contributed"]:,} contributed repos')
+    parts.append(f'member since {since:%B %Y}')
     if d.get("accounts"):
         parts.append(f'aggregated across {d["accounts"]} accounts')
     text = "Stats: " + "; ".join(parts) + "."
     if langs:
         text += " Top languages: " + ", ".join(k for k, _ in langs) + "."
     return html.escape(text, quote=True)
+
+
+
+def load_snapshot_days():
+    path = DATA / "snapshot.json"
+    try:
+        raw = json.loads(path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    days = {}
+    for item in raw.get("days") or []:
+        if not isinstance(item, (list, tuple)) or len(item) < 2:
+            continue
+        try:
+            key = str(item[0])
+            datetime.date.fromisoformat(key)
+            n = int(item[1] or 0)
+        except (TypeError, ValueError):
+            continue
+        if n > 0:
+            days[key] = n
+    return days
+
+
+def merge_snapshot_calendar(calendar):
+    extra = load_snapshot_days()
+    if not extra:
+        return calendar, 0
+    merged = []
+    added = 0
+    for day, n in calendar:
+        add = extra.get(day, 0)
+        merged.append([day, int(n or 0) + add])
+        added += add
+    return merged, added
 
 
 def city_alt(calendar):
@@ -63,6 +122,17 @@ def city_alt(calendar):
         d = datetime.date.fromisoformat(busiest[0])
         text += f", busiest day {d:%B} {d.day} with {busiest[1]}"
     return html.escape(text + ".", quote=True)
+
+
+
+def builds_alt(calendar):
+    m = series_metrics(calendar)
+    text = (
+        f"Build stats: {m['total']:,} contributions in the last year; "
+        f"daily average {m['avg']:.1f}; {m['active']} active days ({m['pct']}% of the year); "
+        f"current streak {days(m['streak'])}."
+    )
+    return html.escape(text, quote=True)
 
 
 def slugify(name: str) -> str:
@@ -105,19 +175,34 @@ def main():
     stats = json.loads((DATA / "stats.json").read_text())
     s = README.read_text()
 
+    cal_file = DATA / "calendar.json"
+    calendar = json.loads(cal_file.read_text()) if cal_file.exists() else []
+    if calendar:
+        city_cal, _snapshot_added = merge_snapshot_calendar(calendar)
+    else:
+        city_cal = []
+
     s, n = re.subn(
         r'(<img src="\./assets/stats\.svg"[^>]*?alt=")[^"]*(")',
-        lambda m: m.group(1) + stats_alt(stats) + m.group(2),
+        lambda m: m.group(1) + stats_alt(stats, calendar=city_cal) + m.group(2),
         s,
     )
     if n != 1:
         sys.exit("error: README needs exactly one stats.svg image with an alt attribute")
 
-    cal_file = DATA / "calendar.json"
-    if cal_file.exists():
+    if city_cal and "./assets/builds.svg" in s:
+        s, n = re.subn(
+            r'(<img src="\./assets/builds\.svg"[^>]*?alt=")[^"]*(")',
+            lambda m: m.group(1) + builds_alt(city_cal) + m.group(2),
+            s,
+        )
+        if n != 1:
+            sys.exit("error: README needs exactly one builds.svg image with an alt attribute")
+
+    if city_cal:
         s, n = re.subn(
             r'(<img src="\./assets/contribution-city\.svg"[^>]*?alt=")[^"]*(")',
-            lambda m: m.group(1) + city_alt(json.loads(cal_file.read_text())) + m.group(2),
+            lambda m: m.group(1) + city_alt(city_cal) + m.group(2),
             s,
         )
         if n != 1:

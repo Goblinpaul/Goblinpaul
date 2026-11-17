@@ -35,11 +35,10 @@ jobs:
 
       - name: Fetch data
         env:
-          PROFILE_ACCOUNTS: "Goblinpaul=PROFILE_TOKEN_GOBLINPAUL,pplintracking=PROFILE_TOKEN_A,aipecorp=PROFILE_TOKEN_B"
-          PROFILE_TOKEN_GOBLINPAUL: ${{ secrets.PROFILE_TOKEN_GOBLINPAUL }}
-          PROFILE_TOKEN: ${{ secrets.PROFILE_TOKEN }}   # optional alias for Goblinpaul
-          PROFILE_TOKEN_A: ${{ secrets.PPLINTRACKING }}
-          PROFILE_TOKEN_B: ${{ secrets.AIPECORP }}
+          PROFILE_ACCOUNTS: ${{ secrets.PROFILE_ACCOUNTS }}
+          TOKEN_1: ${{ secrets.TOKEN_1 }}
+          TOKEN_2: ${{ secrets.TOKEN_2 }}
+          TOKEN_3: ${{ secrets.TOKEN_3 }}
           GITHUB_TOKEN: ${{ github.token }}             # public GraphQL fallback
         run: python tools/profile/fetch.py
 
