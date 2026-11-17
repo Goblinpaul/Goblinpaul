@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" role="img" aria-label="Make">
+  <title>Make</title>
+  <defs>
+    <style type="text/css"><![CDATA[
+      .stage {
+        transform-box: fill-box;
+        transform-origin: 20px 20px;
+        opacity: 1;
+        animation: enter 0.35s ease-out forwards;
+      }
+      @keyframes enter {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+    ]]></style>
+  </defs>
+  <g class="stage">
+    <rect x="0.5" y="0.5" width="39" height="39" rx="8" ry="8" fill="#111a11" stroke="#1a3a1a" stroke-width="1"/>
+    <svg x="7" y="7" width="26" height="26" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" fill="none">
+
+  <defs>
+    <linearGradient id="make-a" x1="8" y1="56" x2="24" y2="8" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F024F6"/>
+      <stop offset="100%" stop-color="#C416F8"/>
+    </linearGradient>
+    <linearGradient id="make-b" x1="24" y1="56" x2="36" y2="8" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#C416F8"/>
+      <stop offset="100%" stop-color="#9406F9"/>
+    </linearGradient>
+    <linearGradient id="make-c" x1="40" y1="56" x2="52" y2="8" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8200FA"/>
+      <stop offset="100%" stop-color="#9406F9"/>
+    </linearGradient>
+  </defs>
+  
+  <g transform="translate(5.5,10) skewX(-20)">
+    <rect x="0" y="2" width="13.5" height="42" rx="3.2" fill="url(#make-a)"/>
+  </g>
+  <rect x="24" y="8" width="14.5" height="48" rx="3.2" fill="url(#make-b)"/>
+  <rect x="42.5" y="8" width="14.5" height="48" rx="3.2" fill="url(#make-c)"/>
+
+    </svg>
+  </g>
+</svg>

@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+preview-full.png
+preview-stack.png
+preview-stats.png
+tools/profile/accounts.local.json

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" role="img" aria-label="Cursor">
+  <title>Cursor</title>
+  <defs>
+    <style type="text/css"><![CDATA[
+      .stage {
+        transform-box: fill-box;
+        transform-origin: 20px 20px;
+        opacity: 1;
+        animation: enter 0.35s ease-out forwards;
+      }
+      @keyframes enter {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+    ]]></style>
+  </defs>
+  <g class="stage">
+    <rect x="0.5" y="0.5" width="39" height="39" rx="8" ry="8" fill="#111a11" stroke="#1a3a1a" stroke-width="1"/>
+    <svg x="7" y="7" width="26" height="26" viewBox="0 0 128 128" preserveAspectRatio="xMidYMid meet" fill="#FFFFFF" fill-rule="evenodd">
+<path d="M117.9 30.289 66.664.713a5.32 5.32 0 0 0-5.323 0L10.09 30.29a4.48 4.48 0 0 0-2.234 3.872v59.663c0 1.6.853 3.077 2.24 3.878l51.24 29.586a5.33 5.33 0 0 0 5.324 0l51.246-29.586a4.48 4.48 0 0 0 2.24-3.878V34.166a4.48 4.48 0 0 0-2.24-3.872zm-3.216 6.272-49.47 85.681c-.337.576-1.217.341-1.217-.325V65.81a3.15 3.15 0 0 0-1.573-2.72l-48.59-28.055c-.571-.331-.336-1.216.33-1.216h98.94c1.409 0 2.284 1.525 1.58 2.741"/>
+    </svg>
+  </g>
+</svg>

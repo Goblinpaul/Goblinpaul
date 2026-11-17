@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="24" viewBox="0 0 800 24" role="img" aria-label="$ ls ~/stack">
+  <title>$ ls ~/stack</title>
+  <defs>
+    <style type="text/css"><![CDATA[
+      .prompt {
+        fill: #39ff14;
+        font-size: 13px;
+        font-weight: 400;
+        font-family: "Courier New", Courier, ui-monospace, "Liberation Mono", monospace;
+      }
+    ]]></style>
+  </defs>
+  <text class="prompt" x="35" y="16">$ ls ~/stack</text>
+</svg>

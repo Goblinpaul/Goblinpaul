@@ -1,0 +1,10 @@
+This profile pipeline is adapted from Giorgi Kobaidze's MIT-licensed
+work in https://github.com/georgekobaidze/georgekobaidze
+(tools/profile/fetch.py, render.py, readme.py, the contribution-city
+algorithm, and the GitHub Actions workflow).
+
+The original license text is in LICENSE. The visual identity of this
+profile (terminal chrome, near-black #020400 interior, #39ff14 green
+palette, Courier New stack, the Matrix-rain header, and the skills
+grid) is original to Goblinpaul. The adapted generator is provided
+under the same MIT terms.

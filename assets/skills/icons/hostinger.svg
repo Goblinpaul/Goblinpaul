@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" role="img" aria-label="Hostinger">
+  <title>Hostinger</title>
+  <defs>
+    <style type="text/css"><![CDATA[
+      .stage {
+        transform-box: fill-box;
+        transform-origin: 20px 20px;
+        opacity: 1;
+        animation: enter 0.35s ease-out forwards;
+      }
+      @keyframes enter {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+    ]]></style>
+  </defs>
+  <g class="stage">
+    <rect x="0.5" y="0.5" width="39" height="39" rx="8" ry="8" fill="#111a11" stroke="#1a3a1a" stroke-width="1"/>
+    <svg x="7" y="7" width="26" height="26" viewBox="7.002 8.287 148.203 175.426" preserveAspectRatio="xMidYMid meet" fill-rule="evenodd" clip-rule="evenodd" stroke-linejoin="round">
+<path d="m7.002 8.287 39.319 21.172v39.32h57.467l36.295 21.172h-133.081zm148.203 75.615v-54.443l-42.344-21.172v51.418zm0 99.811-39.319-21.172v-39.32h-57.467l-36.295-21.172h133.081zm-148.203-75.615v54.443l42.343 21.172v-51.418z" fill="#6747c7"/>
+    </svg>
+  </g>
+</svg>
