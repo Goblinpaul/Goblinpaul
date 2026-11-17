@@ -4,6 +4,8 @@
 
 - the alt text of the stats, builds, and contribution-city images
 - the project-card block between <!-- projects:start --> and <!-- projects:end -->
+- the stack block between <!-- stack:start --> and <!-- stack:end -->
+  (per-icon images with title/alt hover names, official-color tiles)
 
 Everything else in the README is left exactly as it is. There is no
 writing or links section.
@@ -25,6 +27,7 @@ PROJECTS_FILE = HERE / "projects.json"
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 from render import series_metrics  # noqa: E402
+from stack import stack_block  # noqa: E402
 
 
 def days(n):
@@ -171,6 +174,53 @@ def projects_block():
     return "<!-- projects:start -->\n" + "\n".join(lines) + "\n<!-- projects:end -->"
 
 
+def ensure_stack_markers(s: str) -> str:
+    """Insert stack markers and split the wrapping <p> around them.
+
+    Replaces a leftover single skills.svg <img> on first run. Later runs
+    only tidy the paragraphs on either side of the existing markers.
+    """
+    if "<!-- stack:start -->" not in s:
+        s, n = re.subn(
+            r'[ \t]*<img src="\./assets/skills\.svg"[^>]*>\s*',
+            "<!-- stack:start -->\n<!-- stack:end -->\n",
+            s,
+            count=1,
+        )
+        if n != 1:
+            sys.exit("error: README needs a skills.svg image or stack markers")
+
+    # Close the leading <p align="center"> after the city image and wrap
+    # the footer in its own paragraph so the stack table is not inside <p>.
+    s, n = re.subn(
+        r'(<img src="\./assets/contribution-city\.svg"[^>]*>)\s*',
+        r"\1\n</p>\n",
+        s,
+        count=1,
+    )
+    if n != 1:
+        sys.exit("error: README needs exactly one contribution-city.svg image")
+
+    # Avoid leftover </p> immediately after the city if we already closed it.
+    s = re.sub(r'(</p>\s*)+</p>', "</p>", s)
+
+    # Opening <p> for the footer (projects block stays between stack and footer).
+    s, n = re.subn(
+        r'(<!-- projects:end -->)\s*(<img src="\./assets/footer\.svg")',
+        "\\1\n<p align=\"center\">\n\\2",
+        s,
+        count=1,
+    )
+    if n != 1:
+        # Already split, or the footer <p> already exists just before footer.svg
+        if not re.search(
+            r'<!-- projects:end -->\s*<p align="center">\s*<img src="\./assets/footer\.svg"',
+            s,
+        ):
+            sys.exit("error: could not wrap footer.svg in its own paragraph")
+    return s
+
+
 def main():
     stats = json.loads((DATA / "stats.json").read_text())
     s = README.read_text()
@@ -207,6 +257,17 @@ def main():
         )
         if n != 1:
             sys.exit("error: README needs exactly one contribution-city.svg image with an alt attribute")
+
+    s = ensure_stack_markers(s)
+    s, n = re.subn(
+        r"<!-- stack:start -->.*?<!-- stack:end -->\n?",
+        lambda _: stack_block().rstrip() + "\n",
+        s,
+        flags=re.S,
+    )
+    if n != 1:
+        sys.exit("error: README needs exactly one <!-- stack:start --> … <!-- stack:end --> block")
+    s = re.sub(r"(<!-- stack:end -->)\n+", r"\1\n\n", s, count=1)
 
     s, n = re.subn(
         r"<!-- projects:start -->.*?<!-- projects:end -->",

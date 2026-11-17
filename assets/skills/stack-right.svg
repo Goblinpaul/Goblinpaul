@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="35" height="40"
+     viewBox="0 0 35 40" role="img" aria-label="">
+  <rect x="0" y="0" width="35" height="40" fill="#020400"/>
+  <line x1="35" y1="0" x2="35" y2="40" stroke="#1a5a1a" stroke-width="1.5"/>
+</svg>

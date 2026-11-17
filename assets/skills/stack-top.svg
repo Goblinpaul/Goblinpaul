@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="70"
+     viewBox="0 0 800 70" role="img" aria-label="Tools I know">
+  <title>stack</title>
+  <defs>
+    <clipPath id="term">
+      <path d="M0,70 L0,10 Q0,0 10,0 L790,0
+               Q800,0 800,10 L800,70 Z"/>
+    </clipPath>
+    <style type="text/css"><![CDATA[
+      .chrome-title {
+        fill: #2a8a2a;
+        font-size: 11px;
+        font-family: "Courier New", Courier, ui-monospace, "Liberation Mono", monospace;
+      }
+      .prompt {
+        fill: #39ff14;
+        font-size: 13px;
+        font-family: "Courier New", Courier, ui-monospace, "Liberation Mono", monospace;
+      }
+    ]]></style>
+  </defs>
+  <rect x="0" y="0" width="800" height="96" rx="10" ry="10"
+        fill="#020400" stroke="#1a5a1a" stroke-width="1.5"/>
+  <g clip-path="url(#term)">
+    <rect x="0" y="0" width="800" height="28" fill="#0a1c0a"/>
+    <line x1="0" y1="28" x2="800" y2="28" stroke="#1a5a1a" stroke-width="1"/>
+    <circle cx="18" cy="14.0" r="5" fill="#ff5f56"/>
+    <circle cx="36" cy="14.0" r="5" fill="#ffbd2e"/>
+    <circle cx="54" cy="14.0" r="5" fill="#27c93f"/>
+    <text class="chrome-title" x="400.0" y="15.0"
+          text-anchor="middle" dominant-baseline="middle">stack</text>
+    <text class="prompt" x="35" y="53">$ ls ~/stack</text>
+  </g>
+</svg>

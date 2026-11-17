@@ -23,6 +23,7 @@ import json
 import math
 import pathlib
 import re
+import sys
 import textwrap
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -710,7 +711,7 @@ def build_city(calendar, updated) -> str:
 
 # ─────────────────────────────── skills ────────────────────────────────
 def build_skills() -> str:
-    """Terminal chrome around the unchanged 54-icon grid in assets/skills/skills.svg."""
+    """Terminal chrome around the official-color 54-icon grid in assets/skills/skills.svg."""
     src = (OUT / "skills" / "skills.svg").read_text(encoding="utf-8")
     # Pull the existing style (tile-in, .prompt, .tile) and the body after </defs>.
     style_m = re.search(r"<style[^>]*>\s*(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?\s*</style>", src, re.S)
@@ -1020,6 +1021,10 @@ def main() -> None:
             "contribution-city.svg",
             build_city(merged, stats["updated"]),
         )
+    if str(HERE) not in sys.path:
+        sys.path.insert(0, str(HERE))
+    from stack import write_stack  # noqa: E402
+    write_stack(OUT)
     write("skills.svg", build_skills())
     write("projects.svg", build_projects_head(len(projects)))
     # Remove stale cards, then write only current ones.

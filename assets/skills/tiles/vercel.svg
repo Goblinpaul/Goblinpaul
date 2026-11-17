@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" role="img" aria-label="Vercel">
+  <title>Vercel</title>
+  <defs>
+    <style type="text/css"><![CDATA[
+      .stage {
+        transform-box: fill-box;
+        transform-origin: 20px 20px;
+        opacity: 1;
+        animation: enter 0.35s ease-out 0.3689s both;
+      }
+      @keyframes enter {
+        from { opacity: 0; transform: scale(0.86); }
+        to   { opacity: 1; transform: scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .stage { animation: none !important; opacity: 1; transform: none; }
+      }
+    ]]></style>
+  </defs>
+  <g class="stage">
+    <rect x="0.5" y="0.5" width="39" height="39" rx="8" ry="8" fill="#111a11" stroke="#1a3a1a" stroke-width="1"/>
+    <svg x="7" y="7" width="26" height="26" viewBox="0 0 128 128" preserveAspectRatio="xMidYMid meet" fill="#FFFFFF">
+<path d="M64.002 8.576 128 119.424H0Zm0 0"/>
+    </svg>
+  </g>
+</svg>
