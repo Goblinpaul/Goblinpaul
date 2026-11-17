@@ -245,7 +245,7 @@ def build_combined_skills() -> str:
         attrs = re.sub(r'\s*preserveAspectRatio="[^"]*"', "", attrs).strip()
         wrapper = (" " + attrs) if attrs else ""
         safe = html.escape(name)
-        chunks.append(f'  <g class="tile t{i}" transform="translate({x},{y})">')
+        chunks.append(f'  <g transform="translate({x},{y})"><g class="tile t{i}">')
         chunks.append(f"    <title>{safe}</title>")
         chunks.append(
             f'    <rect x="0.5" y="0.5" width="39" height="39" rx="{RX}" ry="{RX}" '
@@ -257,7 +257,7 @@ def build_combined_skills() -> str:
         )
         chunks.append(inner)
         chunks.append("    </svg>")
-        chunks.append("  </g>")
+        chunks.append("  </g></g>")
     chunks.append("</svg>")
     return "\n".join(chunks) + "\n"
 

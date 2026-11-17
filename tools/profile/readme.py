@@ -5,7 +5,8 @@
 - the alt text of the stats, builds, and contribution-city images
 - the project-card block between <!-- projects:start --> and <!-- projects:end -->
 - the stack block between <!-- stack:start --> and <!-- stack:end -->
-  (one skills.svg image; GitHub's table sanitizer breaks a tiled frame)
+  (a single assets/skills.svg image; GitHub table CSS broke the
+  per-icon table layout)
 
 Everything else in the README is left exactly as it is. There is no
 writing or links section.
@@ -26,17 +27,11 @@ PROJECTS_FILE = HERE / "projects.json"
 
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
-from render import series_metrics  # noqa: E402
-
-STACK_IMG = (
-    '<img src="./assets/skills.svg" width="100%" align="top" '
-    'alt="Tools and stack: languages, infrastructure, AI tools, and design apps.">'
+from render import (  # noqa: E402
+    blend_snapshot_languages,
+    language_weights,
+    series_metrics,
 )
-
-
-def stack_block() -> str:
-    """Single framed skills image. A HTML table is restyled by GitHub."""
-    return "<!-- stack:start -->\n" + STACK_IMG + "\n<!-- stack:end -->"
 
 
 def days(n):
@@ -45,7 +40,9 @@ def days(n):
 
 def stats_alt(d, calendar=None):
     since = datetime.date.fromisoformat(d["created_at"][:10])
-    langs = sorted((d.get("languages") or {}).items(), key=lambda kv: -kv[1])[:5]
+    weights = language_weights(d.get("languages") or {})
+    weights = blend_snapshot_languages(weights, calendar, load_snapshot_days())
+    langs = sorted(weights.items(), key=lambda kv: -kv[1])[:5]
     year = d.get("year")
     parts = []
     if d.get("commits_year"):
@@ -183,11 +180,24 @@ def projects_block():
     return "<!-- projects:start -->\n" + "\n".join(lines) + "\n<!-- projects:end -->"
 
 
-def ensure_stack_markers(s: str) -> str:
-    """Insert stack markers and split the wrapping <p> around them.
+def stack_block() -> str:
+    """Single official-color grid image. GitHub's markdown table CSS
+    (borders, cell padding, zebra backgrounds, max-width wrap) broke
+    the per-icon table layout, so Actions emits this one-image form.
+    Tile SVGs are kept in assets/skills/tiles/ for a future hover layout.
+    """
+    return (
+        "<!-- stack:start -->\n"
+        '<img src="./assets/skills.svg" width="100%" align="top" alt="Tools I know.">\n'
+        "<!-- stack:end -->\n"
+    )
 
-    Replaces a leftover single skills.svg <img> on first run. Later runs
-    only tidy the paragraphs on either side of the existing markers.
+
+def ensure_stack_markers(s: str) -> str:
+    """Make sure stack markers exist and sit inside the main centered <p>.
+
+    Reunites paragraphs split by the earlier table layout so the single
+    skills.svg image aligns with the other 100%-width slices.
     """
     if "<!-- stack:start -->" not in s:
         s, n = re.subn(
@@ -199,34 +209,20 @@ def ensure_stack_markers(s: str) -> str:
         if n != 1:
             sys.exit("error: README needs a skills.svg image or stack markers")
 
-    # Close the leading <p align="center"> after the city image and wrap
-    # the footer in its own paragraph so the stack table is not inside <p>.
-    s, n = re.subn(
-        r'(<img src="\./assets/contribution-city\.svg"[^>]*>)\s*',
-        r"\1\n</p>\n",
+    # Drop a leftover </p> right after the city image.
+    s = re.sub(
+        r'(<img src="\./assets/contribution-city\.svg"[^>]*>)\s*</p>\s*',
+        r"\1\n",
         s,
         count=1,
     )
-    if n != 1:
-        sys.exit("error: README needs exactly one contribution-city.svg image")
-
-    # Avoid leftover </p> immediately after the city if we already closed it.
-    s = re.sub(r'(</p>\s*)+</p>', "</p>", s)
-
-    # Opening <p> for the footer (projects block stays between stack and footer).
-    s, n = re.subn(
-        r'(<!-- projects:end -->)\s*(<img src="\./assets/footer\.svg")',
-        "\\1\n<p align=\"center\">\n\\2",
+    # Drop a leftover opening <p> right before footer.svg.
+    s = re.sub(
+        r'<p align="center">\s*(<img src="\./assets/footer\.svg")',
+        r"\1",
         s,
         count=1,
     )
-    if n != 1:
-        # Already split, or the footer <p> already exists just before footer.svg
-        if not re.search(
-            r'<!-- projects:end -->\s*<p align="center">\s*<img src="\./assets/footer\.svg"',
-            s,
-        ):
-            sys.exit("error: could not wrap footer.svg in its own paragraph")
     return s
 
 
@@ -276,7 +272,7 @@ def main():
     )
     if n != 1:
         sys.exit("error: README needs exactly one <!-- stack:start --> … <!-- stack:end --> block")
-    s = re.sub(r"(<!-- stack:end -->)\n+", r"\1\n\n", s, count=1)
+    s = re.sub(r"(<!-- stack:end -->)\n+", r"\1\n", s, count=1)
 
     s, n = re.subn(
         r"<!-- projects:start -->.*?<!-- projects:end -->",

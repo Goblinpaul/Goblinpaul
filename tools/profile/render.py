@@ -244,6 +244,36 @@ def language_weights(langs: dict) -> dict[str, float]:
     return {name: size / t for name, size in weighted.items()}
 
 
+
+def blend_snapshot_languages(
+    weights: dict[str, float],
+    calendar,
+    snapshot_days: dict | None,
+) -> dict[str, float]:
+    """Fold the frozen snapshot into the language mix as TypeScript.
+
+    Snapshot weight is its share of the merged contribution total; the
+    remaining share keeps the GitHub language mix.
+    """
+    if not weights:
+        return {"TypeScript": 1.0} if snapshot_days else {}
+    snap_total = sum(int(v or 0) for v in (snapshot_days or {}).values())
+    merged_total = 0
+    for item in calendar or []:
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            merged_total += int(item[1] or 0)
+    if snap_total <= 0 or merged_total <= 0:
+        return weights
+    w_snap = snap_total / merged_total
+    if w_snap >= 1:
+        return {"TypeScript": 1.0}
+    w_gh = 1.0 - w_snap
+    total = sum(weights.values()) or 1.0
+    out = {name: (share / total) * w_gh for name, share in weights.items()}
+    out["TypeScript"] = out.get("TypeScript", 0.0) + w_snap
+    return out
+
+
 def _positive(d: dict, key: str):
 
     """Return a value only when it is present and greater than zero."""
@@ -411,6 +441,7 @@ def build_stats(d: dict, calendar=None) -> str:
     lx = PAD_X + lw + gap2
     lwid = WIDTH - PAD_X - lx
     weights = language_weights(d.get("languages") or {})
+    weights = blend_snapshot_languages(weights, calendar, load_snapshot_days(DATA))
     langs = sorted(weights.items(), key=lambda item: -item[1])
     total_lang = sum(v for _, v in langs)
     if total_lang:
