@@ -3,7 +3,7 @@
      width="800" height="388" viewBox="0 0 800 388"
      role="img" aria-label="GitHub stats">
   <title>stats</title>
-  <desc>GitHub stats: 0 total stars; 9 contributions in 2026, 10 all time; 0 pull requests (0 merged); current streak 1 day, longest 1 day; 2 followers; member since November 2023. Aggregated across 3 accounts. Top languages: Python.</desc>
+  <desc>GitHub stats: 0 total stars; 10006 contributions in 2026, 10007 all time; 791 pull requests (761 merged); current streak 1 day, longest 24 days; 2 followers; member since November 2023. Aggregated across 3 accounts. Top languages: HTML, TypeScript, JavaScript, Python, Shell.</desc>
   <defs>
     <clipPath id="term">
       <rect x="1" y="1" width="798" height="386" rx="10" ry="10"/>
@@ -81,8 +81,8 @@ text, .prompt, .label, .value, .dim, .chrome-title {
   <path d="M210.0,181.0 L210.0,190.0 L219.0,190.0" fill="none" stroke="#39ff14" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter"/>
   <path d="M377.0,190.0 L386.0,190.0 L386.0,181.0" fill="none" stroke="#39ff14" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter"/>
   <text class="label" x="224" y="112" letter-spacing="1.2">CONTRIBUTIONS 2026</text>
-  <text class="value" x="224" y="146">9</text>
-  <text class="sub" x="224" y="176">10 all time</text>
+  <text class="value" x="224" y="146">10,006</text>
+  <text class="sub" x="224" y="176">10,007 all time</text>
 </g>
 <g class="ln" style="animation-delay:0.24s">
   <rect x="408.0" y="90.0" width="176.0" height="100.0" rx="2" fill="#0c140c" stroke="#163016" stroke-width="0.75"/>
@@ -91,8 +91,8 @@ text, .prompt, .label, .value, .dim, .chrome-title {
   <path d="M408.0,181.0 L408.0,190.0 L417.0,190.0" fill="none" stroke="#39ff14" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter"/>
   <path d="M575.0,190.0 L584.0,190.0 L584.0,181.0" fill="none" stroke="#39ff14" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter"/>
   <text class="label" x="422" y="112" letter-spacing="1.2">PULL REQUESTS</text>
-  <text class="value" x="422" y="146">0</text>
-  <text class="sub" x="422" y="176">0 merged</text>
+  <text class="value" x="422" y="146">791</text>
+  <text class="sub" x="422" y="176">761 merged</text>
 </g>
 <g class="ln" style="animation-delay:0.30s">
   <rect x="606.0" y="90.0" width="176.0" height="100.0" rx="2" fill="#0c140c" stroke="#163016" stroke-width="0.75"/>
@@ -102,7 +102,7 @@ text, .prompt, .label, .value, .dim, .chrome-title {
   <path d="M773.0,190.0 L782.0,190.0 L782.0,181.0" fill="none" stroke="#39ff14" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter"/>
   <text class="label" x="620" y="112" letter-spacing="1.2">CURRENT STREAK</text>
   <text class="value" x="620" y="146">1d</text>
-  <text class="sub" x="620" y="176">longest: 1 day</text>
+  <text class="sub" x="620" y="176">longest: 24 days</text>
 </g>
 <g class="ln" style="animation-delay:.4s">
   <rect x="12.0" y="206.0" width="268.0" height="148.0" rx="2" fill="#0c140c" stroke="#163016" stroke-width="0.75"/>
@@ -121,7 +121,7 @@ text, .prompt, .label, .value, .dim, .chrome-title {
   <path d="M779.0,206.0 L788.0,206.0 L788.0,215.0" fill="none" stroke="#39ff14" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter"/>
   <path d="M302.0,345.0 L302.0,354.0 L311.0,354.0" fill="none" stroke="#39ff14" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter"/>
   <path d="M779.0,354.0 L788.0,354.0 L788.0,345.0" fill="none" stroke="#39ff14" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter"/>
-  <text class="label" x="318" y="228" letter-spacing="1.2">TOP LANGUAGES</text><rect x="318" y="246" width="454" height="10" fill="#061006"/><rect x="318.0" y="246" width="454.0" height="10" fill="#39ff14"/><rect x="318.0" y="270" width="8" height="8" fill="#39ff14"/><text x="332.0" y="278" class="fg" style="font-size:12px">Python</text><text x="539.0" y="278" text-anchor="end" class="muted" style="font-size:12px">100.0%</text>
+  <text class="label" x="318" y="228" letter-spacing="1.2">TOP LANGUAGES</text><rect x="318" y="246" width="454" height="10" fill="#061006"/><rect x="318.0" y="246" width="312.5" height="10" fill="#39ff14"/><rect x="630.5" y="246" width="85.7" height="10" fill="#1ec81e"/><rect x="716.2" y="246" width="31.9" height="10" fill="#14b814"/><rect x="748.1" y="246" width="14.9" height="10" fill="#0e8a0e"/><rect x="763.0" y="246" width="4.1" height="10" fill="#2a8a2a"/><rect x="767.1" y="246" width="4.9" height="10" fill="#3a6a3a"/><rect x="318.0" y="270" width="8" height="8" fill="#39ff14"/><text x="332.0" y="278" class="fg" style="font-size:12px">HTML</text><text x="539.0" y="278" text-anchor="end" class="muted" style="font-size:12px">68.8%</text><rect x="545.0" y="270" width="8" height="8" fill="#1ec81e"/><text x="559.0" y="278" class="fg" style="font-size:12px">TypeScript</text><text x="766.0" y="278" text-anchor="end" class="muted" style="font-size:12px">18.9%</text><rect x="318.0" y="290" width="8" height="8" fill="#14b814"/><text x="332.0" y="298" class="fg" style="font-size:12px">JavaScript</text><text x="539.0" y="298" text-anchor="end" class="muted" style="font-size:12px">7.0%</text><rect x="545.0" y="290" width="8" height="8" fill="#0e8a0e"/><text x="559.0" y="298" class="fg" style="font-size:12px">Python</text><text x="766.0" y="298" text-anchor="end" class="muted" style="font-size:12px">3.3%</text><rect x="318.0" y="310" width="8" height="8" fill="#2a8a2a"/><text x="332.0" y="318" class="fg" style="font-size:12px">Shell</text><text x="539.0" y="318" text-anchor="end" class="muted" style="font-size:12px">0.9%</text><rect x="545.0" y="310" width="8" height="8" fill="#3a6a3a"/><text x="559.0" y="318" class="fg" style="font-size:12px">Other</text><text x="766.0" y="318" text-anchor="end" class="muted" style="font-size:12px">1.1%</text>
 </g>
 <text x="788" y="374" text-anchor="end" class="muted" style="font-size:11px">// last sync 2026-11-16</text>  </g>
 </svg>
